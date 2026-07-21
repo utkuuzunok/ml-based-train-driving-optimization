@@ -1,0 +1,35 @@
+{
+  "feature_bounds": {
+    "acceleration_ms2": {
+      "maximum": 1.0,
+      "minimum": 0.6
+    },
+    "coasting_point_m": {
+      "maximum": 1600.0,
+      "minimum": 1000.0
+    },
+    "deceleration_ms2": {
+      "maximum": 1.1,
+      "minimum": 0.7
+    },
+    "speed_limit_kmh": {
+      "maximum": 100.0,
+      "minimum": 60.0
+    }
+  },
+  "feature_columns": [
+    "acceleration_ms2",
+    "deceleration_ms2",
+    "speed_limit_kmh",
+    "coasting_point_m"
+  ],
+  "numpy_version": "2.5.1",
+  "python_version": "3.12.13",
+  "random_state": 42,
+  "scikit_learn_version": "1.9.0",
+  "selected_model": "random_forest",
+  "selected_model_display_name": "Random Forest",
+  "selection_rule": "lowest cross-validation RMSE, then MAE",
+  "target": "travel_time_s",
+  "training_rows": 875
+}
