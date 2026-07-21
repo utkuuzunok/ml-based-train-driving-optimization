@@ -1,0 +1,56 @@
+{
+  "best_observed_grid_baseline": {
+    "acceleration_ms2": 0.6,
+    "coasting_point_m": 1000.0,
+    "deceleration_ms2": 1.1,
+    "energy_kwh": 17.312461487041958,
+    "speed_limit_kmh": 80.0,
+    "travel_time_s": 119.81113699847025
+  },
+  "best_predicted_candidate": {
+    "acceleration_ms2": 1.0,
+    "coasting_point_m": 1000.0,
+    "deceleration_ms2": 1.1,
+    "energy_model": "polynomial_ridge",
+    "predicted_energy_kwh": 14.976386504466346,
+    "predicted_feasible": true,
+    "predicted_travel_time_s": 120.0,
+    "rank": 1,
+    "speed_limit_kmh": 73.63826195462096,
+    "travel_time_margin_s": 0.0,
+    "travel_time_model": "polynomial_ridge",
+    "verification_status": "surrogate_prediction_only"
+  },
+  "constraint": "predicted travel_time_s <= 120.0",
+  "feature_bounds": {
+    "acceleration_ms2": {
+      "maximum": 1.0,
+      "minimum": 0.6
+    },
+    "coasting_point_m": {
+      "maximum": 1600.0,
+      "minimum": 1000.0
+    },
+    "deceleration_ms2": {
+      "maximum": 1.1,
+      "minimum": 0.7
+    },
+    "speed_limit_kmh": {
+      "maximum": 100.0,
+      "minimum": 60.0
+    }
+  },
+  "latin_hypercube_samples": 100000,
+  "models": {
+    "energy_kwh": "polynomial_ridge",
+    "travel_time_s": "polynomial_ridge"
+  },
+  "objective": "minimize predicted energy consumption",
+  "predicted_energy_improvement_kwh": 2.336074982575612,
+  "predicted_energy_improvement_percent": 13.493603924110495,
+  "random_state": 42,
+  "successful_local_refinements": 19,
+  "tie_breaker": "lower predicted travel time",
+  "unique_candidates_evaluated": 100877,
+  "verification_status": "surrogate_prediction_only"
+}

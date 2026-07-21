@@ -12,11 +12,13 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from ml_training import (
     DEFAULT_DATASET_PATH,
+    DEFAULT_MODELS_DIRECTORY,
     DEFAULT_RANDOM_STATE,
     FEATURE_COLUMNS,
     MODEL_DISPLAY_NAMES,
     TARGET_COLUMNS,
     build_models,
+    fit_and_save_models,
     load_dataset,
 )
 
@@ -51,6 +53,7 @@ def _write_csv(
 def evaluate_structured_holdouts(
     dataset_path: Path | str = DEFAULT_DATASET_PATH,
     output_directory: Path | str = DEFAULT_OUTPUT_DIRECTORY,
+    models_directory: Path | str = DEFAULT_MODELS_DIRECTORY,
     *,
     random_state: int = DEFAULT_RANDOM_STATE,
     random_forest_estimators: int = 300,
@@ -189,6 +192,15 @@ def evaluate_structured_holdouts(
     summary_path = output_directory / "summary_metrics.csv"
     _write_csv(fold_path, fold_fields, fold_rows)
     _write_csv(summary_path, summary_fields, summary_rows)
+    saved_model_paths = fit_and_save_models(
+        features,
+        targets,
+        selected_models,
+        models_directory,
+        selection_rule="lowest pooled structured-holdout RMSE, then MAE",
+        random_state=random_state,
+        random_forest_estimators=random_forest_estimators,
+    )
 
     return {
         "dataset_rows": len(features),
@@ -197,6 +209,9 @@ def evaluate_structured_holdouts(
             for feature_index in range(len(FEATURE_COLUMNS))
         ),
         "selected_models": selected_models,
+        "saved_model_paths": {
+            target: str(path) for target, path in saved_model_paths.items()
+        },
         "fold_metrics_path": str(fold_path.resolve()),
         "summary_metrics_path": str(summary_path.resolve()),
     }
@@ -210,6 +225,9 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-directory", type=Path, default=DEFAULT_OUTPUT_DIRECTORY
     )
+    parser.add_argument(
+        "--models-directory", type=Path, default=DEFAULT_MODELS_DIRECTORY
+    )
     return parser
 
 
@@ -218,6 +236,7 @@ def main() -> None:
     summary = evaluate_structured_holdouts(
         arguments.dataset,
         arguments.output_directory,
+        arguments.models_directory,
     )
     print(f"Dataset rows: {summary['dataset_rows']}")
     print(f"Structured folds per target: {summary['folds_per_target']}")

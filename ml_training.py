@@ -193,6 +193,72 @@ def _write_csv(path: Path, fieldnames: Sequence[str], rows: list[dict[str, Any]]
         writer.writerows(rows)
 
 
+def fit_and_save_models(
+    features: np.ndarray,
+    targets: dict[str, np.ndarray],
+    selected_models: dict[str, str],
+    models_directory: Path | str = DEFAULT_MODELS_DIRECTORY,
+    *,
+    selection_rule: str,
+    random_state: int = DEFAULT_RANDOM_STATE,
+    random_forest_estimators: int = 300,
+) -> dict[str, Path]:
+    """Fit selected models on all rows and save each model with its metadata."""
+
+    if set(selected_models) != set(TARGET_COLUMNS):
+        raise ValueError("A selected model is required for every target.")
+    if features.ndim != 2 or features.shape[1] != len(FEATURE_COLUMNS):
+        raise ValueError("Features must contain exactly the four configured columns.")
+
+    models = build_models(
+        random_state=random_state,
+        random_forest_estimators=random_forest_estimators,
+    )
+    models_directory = Path(models_directory)
+    saved_paths: dict[str, Path] = {}
+
+    for target_name in TARGET_COLUMNS:
+        model_name = selected_models[target_name]
+        if model_name not in models:
+            raise ValueError(f"Unknown selected model: {model_name}.")
+        if len(targets[target_name]) != len(features):
+            raise ValueError(f"Target length does not match features: {target_name}.")
+
+        final_model = clone(models[model_name]).fit(features, targets[target_name])
+        filename_target = target_name.removesuffix("_kwh").removesuffix("_s")
+        model_path = models_directory / f"{filename_target}_model.joblib"
+        model_path.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(final_model, model_path)
+
+        metadata = {
+            "target": target_name,
+            "selected_model": model_name,
+            "selected_model_display_name": MODEL_DISPLAY_NAMES[model_name],
+            "feature_columns": list(FEATURE_COLUMNS),
+            "training_rows": len(features),
+            "feature_bounds": {
+                column: {
+                    "minimum": float(features[:, index].min()),
+                    "maximum": float(features[:, index].max()),
+                }
+                for index, column in enumerate(FEATURE_COLUMNS)
+            },
+            "selection_rule": selection_rule,
+            "random_state": random_state,
+            "python_version": platform.python_version(),
+            "numpy_version": np.__version__,
+            "scikit_learn_version": sklearn.__version__,
+        }
+        metadata_path = model_path.with_suffix(".metadata.json")
+        metadata_path.write_text(
+            json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        saved_paths[target_name] = model_path.resolve()
+
+    return saved_paths
+
+
 def train_and_evaluate(
     dataset_path: Path | str = DEFAULT_DATASET_PATH,
     results_directory: Path | str = DEFAULT_RESULTS_DIRECTORY,
@@ -278,35 +344,16 @@ def train_and_evaluate(
         selected_models[target_name] = winner["model"]
         metric_rows.extend(target_metric_rows)
 
-        final_model = clone(models[winner["model"]]).fit(features, target)
-        model_path = models_directory / f"{target_name.removesuffix('_kwh').removesuffix('_s')}_model.joblib"
-        model_path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(final_model, model_path)
 
-        metadata = {
-            "target": target_name,
-            "selected_model": winner["model"],
-            "selected_model_display_name": MODEL_DISPLAY_NAMES[winner["model"]],
-            "feature_columns": list(FEATURE_COLUMNS),
-            "training_rows": len(features),
-            "feature_bounds": {
-                column: {
-                    "minimum": float(features[:, index].min()),
-                    "maximum": float(features[:, index].max()),
-                }
-                for index, column in enumerate(FEATURE_COLUMNS)
-            },
-            "selection_rule": "lowest cross-validation RMSE, then MAE",
-            "random_state": random_state,
-            "python_version": platform.python_version(),
-            "numpy_version": np.__version__,
-            "scikit_learn_version": sklearn.__version__,
-        }
-        metadata_path = model_path.with_suffix(".metadata.json")
-        metadata_path.write_text(
-            json.dumps(metadata, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+    fit_and_save_models(
+        features,
+        targets,
+        selected_models,
+        models_directory,
+        selection_rule="lowest cross-validation RMSE, then MAE",
+        random_state=random_state,
+        random_forest_estimators=random_forest_estimators,
+    )
 
     metric_fields = (
         "target",

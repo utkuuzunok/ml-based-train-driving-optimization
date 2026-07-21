@@ -27,9 +27,9 @@
   "python_version": "3.12.13",
   "random_state": 42,
   "scikit_learn_version": "1.9.0",
-  "selected_model": "random_forest",
-  "selected_model_display_name": "Random Forest",
-  "selection_rule": "lowest cross-validation RMSE, then MAE",
+  "selected_model": "polynomial_ridge",
+  "selected_model_display_name": "Polynomial Ridge Regression",
+  "selection_rule": "lowest pooled structured-holdout RMSE, then MAE",
   "target": "energy_kwh",
   "training_rows": 875
 }

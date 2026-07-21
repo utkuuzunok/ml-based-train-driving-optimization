@@ -69,12 +69,17 @@ class StructuredEvaluationTests(unittest.TestCase):
             result = evaluate_structured_holdouts(
                 dataset_path,
                 root / "evaluation",
+                root / "models",
                 random_forest_estimators=5,
             )
 
             self.assertEqual(result["dataset_rows"], 81)
             self.assertEqual(result["folds_per_target"], 12)
             self.assertEqual(set(result["selected_models"]), set(TARGET_COLUMNS))
+            self.assertTrue((root / "models" / "energy_model.joblib").is_file())
+            self.assertTrue(
+                (root / "models" / "travel_time_model.joblib").is_file()
+            )
 
             with (root / "evaluation" / "fold_metrics.csv").open(
                 encoding="utf-8", newline=""
