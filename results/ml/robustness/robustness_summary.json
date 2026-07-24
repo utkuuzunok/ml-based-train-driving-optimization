@@ -1,0 +1,63 @@
+{
+  "conservative_candidate": {
+    "acceleration_ms2": 0.9999999999999989,
+    "coasting_point_m": 1000.0,
+    "deceleration_ms2": 1.1,
+    "energy_model": "polynomial_ridge",
+    "predicted_energy_kwh": 15.320945725146236,
+    "predicted_feasible": true,
+    "predicted_travel_time_s": 118.9999999999998,
+    "rank": 1,
+    "speed_limit_kmh": 74.53515391363851,
+    "travel_time_margin_s": 1.9895196601282805e-13,
+    "travel_time_model": "polynomial_ridge",
+    "verification_status": "surrogate_prediction_only"
+  },
+  "conservative_time_limit_s": 119.0,
+  "joint_neighborhood": {
+    "maximum_fraction_of_each_feature_range": 0.05,
+    "parameter_bounds": {
+      "acceleration_ms2": {
+        "maximum": 1.0,
+        "minimum": 0.98
+      },
+      "coasting_point_m": {
+        "maximum": 1030.0,
+        "minimum": 1000.0
+      },
+      "deceleration_ms2": {
+        "maximum": 1.1,
+        "minimum": 1.08
+      },
+      "speed_limit_kmh": {
+        "maximum": 75.63826195462096,
+        "minimum": 71.63826195462096
+      }
+    },
+    "predicted_energy_kwh_maximum": 15.820210884936703,
+    "predicted_energy_kwh_median": 15.016784293906223,
+    "predicted_energy_kwh_minimum": 14.224196406988867,
+    "predicted_feasible_count": 9481,
+    "predicted_feasible_percent": 47.405,
+    "predicted_travel_time_s_maximum": 122.55464167765633,
+    "predicted_travel_time_s_median": 120.10447280994441,
+    "predicted_travel_time_s_minimum": 117.77008473003788,
+    "sample_count": 20000
+  },
+  "local_single_parameter_feasible_scenarios": 4,
+  "local_single_parameter_scenarios": 10,
+  "most_important_feature": {
+    "energy_kwh": "speed_limit_kmh",
+    "travel_time_s": "speed_limit_kmh"
+  },
+  "official_candidate": {
+    "acceleration_ms2": 1.0,
+    "coasting_point_m": 1000.0,
+    "deceleration_ms2": 1.1,
+    "predicted_energy_kwh": 14.976386504466346,
+    "predicted_travel_time_s": 120.0,
+    "speed_limit_kmh": 73.63826195462096
+  },
+  "official_time_limit_s": 120.0,
+  "verification_status": "surrogate_prediction_only"
+}
