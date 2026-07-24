@@ -1,4 +1,4 @@
-# Energy-Efficient Train Driving Optimization
+# Machine Learning-Based Energy-Efficient Train Driving Optimization
 
 This project studies how four driving parameters affect train energy consumption
 and travel time:
@@ -172,3 +172,7 @@ Generated figures are stored under `results/ml/figures/`:
   currently represented.
 - Final engineering acceptance requires simulator or physical verification of
   selected candidates when that validation becomes part of the project scope.
+
+## License
+
+This project is available under the [MIT License](LICENSE).
