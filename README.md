@@ -123,8 +123,7 @@ For robustness analysis, the travel-time safety margin is calculated from the
 selected model's pooled repeated-CV residuals. The residual is defined as
 `actual - predicted`, so positive values represent optimistic time predictions.
 The one-sided 95th percentile is 2.87621 s, giving a conservative surrogate
-limit of 147.12379 s instead of an arbitrary one-second margin. This empirical
-margin is a model-risk heuristic, not a formal real-world coverage guarantee.
+limit of 147.12379 s.
 
 ## Verified optimization results
 
