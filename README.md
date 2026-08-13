@@ -70,9 +70,8 @@ The dataset contains 4,500 deterministic parameter combinations:
 | Coasting point | 100–1,800 m |
 
 The design consists of 4,483 Latin Hypercube samples, all 16 boundary corners,
-and one reference operating point. A fixed random seed makes the design exactly
-reproducible. Unlike a parameter-specific grid, this space-filling design does
-not assume in advance which coasting region will be most important.
+and one reference operating point. A fixed random seed makes the 4,500
+simulations reproducible.
 
 Dataset: `results/train_experiments.csv`
 
@@ -90,13 +89,31 @@ The four driving parameters are used to predict two targets independently:
 
 The compared regressors are Linear Regression, degree-two Polynomial Ridge,
 and Random Forest. Metrics are MAE, RMSE, and R². Final model selection uses
-deterministic 5-fold cross-validation repeated three times. Random Forest was
-selected for both targets. Its pooled repeated-CV results were:
+deterministic 5-fold cross-validation repeated three times and chooses the
+lowest pooled RMSE, with MAE as the tie-breaker. The complete comparison is:
 
-| Target | MAE | RMSE | R² |
-|---|---:|---:|---:|
-| Energy | 0.18584 kWh | 0.37915 kWh | 0.99724 |
-| Travel time | 1.19784 s | 2.65842 s | 0.98717 |
+| Target | Model | MAE | RMSE | R² |
+|---|---|---:|---:|---:|
+| Energy | Linear Regression | 2.09048 kWh | 2.98815 kWh | 0.82866 |
+| Energy | Polynomial Ridge | 1.38922 kWh | 1.89341 kWh | 0.93121 |
+| Energy | **Random Forest** | **0.18584 kWh** | **0.37915 kWh** | **0.99724** |
+| Travel time | Linear Regression | 8.78669 s | 14.59270 s | 0.61354 |
+| Travel time | Polynomial Ridge | 6.25811 s | 10.56048 s | 0.79761 |
+| Travel time | **Random Forest** | **1.19784 s** | **2.65842 s** | **0.98717** |
+
+Random Forest was therefore selected from the three candidates; it was not
+fixed in advance. The earlier grid-based study selected Polynomial Ridge under
+a leave-one-parameter-level-out test. That result is not directly comparable:
+the current LHS design contains almost entirely unique continuous values, so
+holding out one exact level would usually leave only one row. Repeated K-fold
+instead measures interpolation among space-filling samples within the defined
+bounds.
+
+Random K-fold splits can still be optimistic about completely unseen regions.
+Accordingly, the reported accuracy is interpreted as in-domain interpolation,
+not evidence of extrapolation or transfer to another train or route. Boundary
+corners, simulator verification, the one-sided safety margin, and the direct DE
+reference provide additional checks on the final optimization result.
 
 The surrogate optimizer evaluates the observed dataset together with 100,000
 deterministic Latin Hypercube candidates. These outputs remain predictions
