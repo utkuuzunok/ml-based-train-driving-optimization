@@ -1,0 +1,53 @@
+{
+  "best_candidate": {
+    "acceleration_ms2": 1.1995629256125655,
+    "coasting_point_m": 110.44982514156573,
+    "deceleration_ms2": 1.099142284260052,
+    "energy_kwh": 8.241123370149388,
+    "final_position_error_m": 0.0,
+    "iterations": 200,
+    "objective_evaluations": 4247,
+    "optimizer_message": "Maximum number of iterations has been exceeded.",
+    "optimizer_success": false,
+    "seed": 71,
+    "simulator_calls": 12056,
+    "speed_limit_kmh": 58.291332417884725,
+    "successful": true,
+    "travel_time_s": 149.99910458331098
+  },
+  "converged_across_seeds": true,
+  "energy_spread_kwh": 0.0003266888191131301,
+  "method": "multi-seed constrained Differential Evolution",
+  "objective": "minimize simulator energy consumption",
+  "parameter_bounds": {
+    "acceleration_ms2": [
+      0.4,
+      1.2
+    ],
+    "coasting_point_m": [
+      100.0,
+      1800.0
+    ],
+    "deceleration_ms2": [
+      0.5,
+      1.1
+    ],
+    "speed_limit_kmh": [
+      50.0,
+      110.0
+    ]
+  },
+  "relative_energy_spread": 3.964129699798538e-05,
+  "relative_energy_tolerance": 0.001,
+  "seeds": [
+    11,
+    29,
+    47,
+    71,
+    101
+  ],
+  "successful_runs": 5,
+  "total_runs": 5,
+  "total_simulator_calls": 60279,
+  "travel_time_limit_s": 150.0
+}

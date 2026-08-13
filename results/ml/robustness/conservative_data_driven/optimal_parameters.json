@@ -1,27 +1,27 @@
 {
   "best_observed_sample": {
-    "acceleration_ms2": 1.1445199907318249,
-    "coasting_point_m": 651.1244190124704,
-    "deceleration_ms2": 1.036368460706476,
-    "energy_kwh": 8.445100176641288,
-    "speed_limit_kmh": 55.742197469735274,
-    "travel_time_s": 149.7784168247109
+    "acceleration_ms2": 1.1602690268770837,
+    "coasting_point_m": 248.3769371533137,
+    "deceleration_ms2": 1.099903606846485,
+    "energy_kwh": 8.7306908172673,
+    "speed_limit_kmh": 59.1860078358755,
+    "travel_time_s": 146.23759456200045
   },
   "best_predicted_candidate": {
-    "acceleration_ms2": 1.0059539345382271,
-    "coasting_point_m": 310.63418404532104,
-    "deceleration_ms2": 1.0056091137889278,
+    "acceleration_ms2": 1.0403487461643395,
+    "coasting_point_m": 138.52617973753706,
+    "deceleration_ms2": 1.0314612361962925,
     "energy_model": "random_forest",
-    "predicted_energy_kwh": 8.371430428402055,
+    "predicted_energy_kwh": 8.611108743701198,
     "predicted_feasible": true,
-    "predicted_travel_time_s": 149.9817509323797,
+    "predicted_travel_time_s": 145.91712676710281,
     "rank": 1,
-    "speed_limit_kmh": 57.4066076122481,
-    "travel_time_margin_s": 0.018249067620303094,
+    "speed_limit_kmh": 80.01604684416756,
+    "travel_time_margin_s": 1.2066653790959947,
     "travel_time_model": "random_forest",
     "verification_status": "surrogate_prediction_only"
   },
-  "constraint": "predicted travel_time_s <= 150.0",
+  "constraint": "predicted travel_time_s <= 147.1237921461988",
   "feature_bounds": {
     "acceleration_ms2": {
       "maximum": 1.2,
@@ -46,8 +46,8 @@
     "travel_time_s": "random_forest"
   },
   "objective": "minimize predicted energy consumption",
-  "predicted_energy_improvement_kwh": 0.073669748239233,
-  "predicted_energy_improvement_percent": 0.8723371741995403,
+  "predicted_energy_improvement_kwh": 0.11958207356610195,
+  "predicted_energy_improvement_percent": 1.3696748180521534,
   "random_state": 42,
   "tie_breaker": "lower predicted travel time",
   "unique_candidates_evaluated": 104500,

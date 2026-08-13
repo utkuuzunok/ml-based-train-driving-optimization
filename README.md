@@ -1,35 +1,39 @@
-# Machine Learning-Based Energy-Efficient Train Driving Optimization
+# ML-Based Energy-Efficient Train Driving Optimization
 
-This project studies how four driving parameters affect train energy consumption
-and travel time:
+This project optimizes four continuous train-driving parameters:
 
 - acceleration,
-- deceleration,
+- service deceleration,
 - speed limit, and
 - coasting point.
 
-The current workflow uses a physics-based simulator to create a fixed dataset,
-compares regression models, and searches the trained surrogate models for a
-low-energy operating strategy subject to a travel-time limit of 120 seconds.
-Optimization results are model predictions until they are checked with the
-simulator or a physical system.
+The objective is to minimize simulated traction energy while completing a
+2,000 m journey, stopping at the station, and satisfying
+`travel_time_s <= 150.0`. A machine-learning surrogate proposes candidates;
+the train simulator verifies them. A separate Differential Evolution search
+provides an independent simulator-based reference.
 
 ## Project structure
 
 | File | Responsibility |
 |---|---|
-| `train_simulator.py` | Train motion, stopping logic, energy, and physical feasibility |
-| `plotting.py` | Visualization of one simulation history |
-| `main.py` | Run and print one example scenario |
-| `experiments.py` | Generate parameter combinations and export simulation results |
-| `ml_training.py` | Train and evaluate Linear Regression, Polynomial Ridge, and Random Forest models |
-| `ml_evaluation.py` | Evaluate unseen parameter levels with structured holdouts |
-| `optimization.py` | Perform constrained continuous optimization using saved surrogate models |
-| `model_analysis.py` | Calculate permutation importance, sensitivity, and robustness |
-| `reporting.py` | Generate presentation-ready figures from saved results |
+| `study_config.py` | Shared parameter ranges, limits, and output paths |
+| `train_simulator.py` | Train motion, stopping logic, energy, and feasibility |
+| `simulation_adapter.py` | Translation between ML features and simulator inputs |
+| `plotting.py` | Visualization of a single simulation history |
+| `main.py` | One example scenario |
+| `experiments.py` | Reproducible Latin Hypercube sampling, batch simulation, and CSV export |
+| `ml_training.py` | Train and evaluate the three regression models |
+| `ml_evaluation.py` | Repeated K-fold evaluation and model selection |
+| `optimization.py` | Rank continuous surrogate candidates without calling the simulator |
+| `optimization_verification.py` | Verify ML candidates in the simulator |
+| `direct_optimization.py` | Multi-seed Differential Evolution on the simulator |
+| `model_analysis.py` | Optional model importance, sensitivity, and robustness analysis |
+| `reporting.py` | Optional figure generation from saved results |
 
-Simulation, visualization, single-scenario execution, batch experiments,
-machine-learning evaluation, and optimization remain separate responsibilities.
+Simulation, ML prediction, candidate verification, direct optimization, and
+visualization remain separate. This makes prediction errors explicit and keeps
+future extensions from silently changing the simulator.
 
 ## Installation
 
@@ -43,135 +47,107 @@ python -m pip install -r requirements.txt
 
 ## Reproducible workflow
 
-The repository already contains the frozen 875-row dataset and lightweight
-result files. The complete pipeline can be reproduced in this order:
+Run the pipeline in this order:
 
 ```bash
+python experiments.py
 python ml_training.py
 python ml_evaluation.py
 python optimization.py
+python optimization_verification.py
+python direct_optimization.py
 python model_analysis.py
 python reporting.py
 python -m unittest discover -s tests -v
 ```
 
-`ml_evaluation.py` refits the structured-holdout winners on all 875 rows and
-saves the local model binaries needed by the later commands. Model binaries are
-excluded from Git because they can be regenerated.
+## Experiment space
 
-To regenerate the simulation dataset deliberately:
+The dataset contains 4,500 deterministic parameter combinations:
 
-```bash
-python experiments.py --output results/train_experiments.csv
-```
-
-Dataset regeneration is not required for ordinary ML analysis.
-
-## Dataset
-
-The full Cartesian grid contains 875 unique combinations:
-
-| Parameter | Values |
+| Parameter | Sampling and optimization bounds |
 |---|---|
-| Acceleration | 0.6 to 1.0 m/s² in 0.1 m/s² increments |
-| Deceleration | 0.7 to 1.1 m/s² in 0.1 m/s² increments |
-| Speed limit | 60 to 100 km/h in 10 km/h increments |
-| Coasting point | 1000 to 1600 m in 100 m increments |
+| Acceleration | 0.4–1.2 m/s² |
+| Deceleration | 0.5–1.1 m/s² |
+| Speed limit | 50–110 km/h |
+| Coasting point | 100–1,800 m |
 
-All 875 simulations completed and met the simulator's physical stopping
-criteria. Of these, 485 also met the official travel-time condition
-`travel_time_s <= 120`.
+The design consists of 4,483 Latin Hypercube samples, all 16 boundary corners,
+and one reference operating point. A fixed random seed makes the design exactly
+reproducible. Unlike a parameter-specific grid, this space-filling design does
+not assume in advance which coasting region will be most important.
 
-The four parameter increments describe the dataset resolution, not permanent
-physical restrictions. Continuous ML optimization is restricted to the minimum
-and maximum values represented in the dataset.
+Dataset: `results/train_experiments.csv`
 
-## Model training and evaluation
+- rows: 4,500 unique combinations;
+- completed and physically feasible: 4,500;
+- satisfy `travel_time_s <= 150.0`: 3,678;
+- missing or non-finite result values: 0.
 
-Inputs are limited to the four driving parameters. Two separate targets are
-predicted:
+## Machine-learning models
 
-- energy consumption in kWh,
+The four driving parameters are used to predict two targets independently:
+
+- energy consumption in kWh;
 - travel time in seconds.
 
-The compared models are Linear Regression, degree-two Polynomial Ridge
-Regression, and Random Forest. Reported metrics are MAE, RMSE, and R².
+The compared regressors are Linear Regression, degree-two Polynomial Ridge,
+and Random Forest. Metrics are MAE, RMSE, and R². Final model selection uses
+deterministic 5-fold cross-validation repeated three times. Random Forest was
+selected for both targets. Its pooled repeated-CV results were:
 
-The normal random split produced very high Random Forest accuracy, but that
-split places neighboring grid combinations in both training and testing.
-Structured evaluation therefore removes one complete parameter level at a time.
-It contains 22 folds per target and tests both interpolation and boundary
-generalization.
+| Target | MAE | RMSE | R² |
+|---|---:|---:|---:|
+| Energy | 0.18584 kWh | 0.37915 kWh | 0.99724 |
+| Travel time | 1.19784 s | 2.65842 s | 0.98717 |
 
-### Structured-holdout results
+The surrogate optimizer evaluates the observed dataset together with 100,000
+deterministic Latin Hypercube candidates. These outputs remain predictions
+until `optimization_verification.py` runs them through `simulate()`.
 
-| Target | Model | MAE | RMSE | R² |
-|---|---|---:|---:|---:|
-| Energy | Linear Regression | 0.4715 kWh | 0.5518 kWh | 0.9911 |
-| Energy | **Polynomial Ridge** | **0.0998 kWh** | **0.1286 kWh** | **0.9995** |
-| Energy | Random Forest | 1.0625 kWh | 2.0114 kWh | 0.8824 |
-| Travel time | Linear Regression | 3.1014 s | 3.6992 s | 0.9202 |
-| Travel time | **Polynomial Ridge** | **1.3130 s** | **1.7840 s** | **0.9814** |
-| Travel time | Random Forest | 3.3748 s | 5.4855 s | 0.8245 |
+For robustness analysis, the travel-time safety margin is calculated from the
+selected model's pooled repeated-CV residuals. The residual is defined as
+`actual - predicted`, so positive values represent optimistic time predictions.
+The one-sided 95th percentile is 2.87621 s, giving a conservative surrogate
+limit of 147.12379 s instead of an arbitrary one-second margin. This empirical
+margin is a model-risk heuristic, not a formal real-world coverage guarantee.
 
-Polynomial Ridge is used for continuous optimization because it generalized
-best to unseen parameter levels.
+## Verified optimization results
 
-## Optimization results
+| Result | Energy | Travel time | Status |
+|---|---:|---:|---|
+| Simulator-verified ML candidate | 8.32660 kWh | 149.93853 s | Feasible |
+| Simulator-verified conservative ML candidate | 8.73069 kWh | 146.23760 s | Feasible |
+| Multi-seed direct DE reference | 8.24112 kWh | 149.99910 s | Feasible |
 
-The objective is to minimize predicted energy while enforcing
-`predicted travel_time_s <= 120`. Lower predicted travel time is the tie-breaker.
-The optimizer combines 100,000 deterministic Latin Hypercube samples, the
-original dataset combinations, and constrained local refinement.
+The verified ML candidate is approximately 1.04% above the best direct DE
+reference energy. This demonstrates that surrogate optimization can produce a
+near-reference candidate; it does not establish ML superiority or prove a
+global optimum.
 
-| Result | Acceleration | Deceleration | Speed limit | Coasting | Energy | Time |
-|---|---:|---:|---:|---:|---:|---:|
-| Best observed grid | 0.6000 | 1.1000 | 80.0000 | 1000 m | 17.3125 kWh | 119.8111 s |
-| Official ML optimum | 1.0000 | 1.1000 | 73.6383 | 1000 m | 14.9764 kWh | 120.0000 s |
-| Conservative ML solution | 1.0000 | 1.1000 | 74.5352 | 1000 m | 15.3209 kWh | 119.0000 s |
+All 50 candidates generated under the data-driven conservative limit satisfied
+the official 150-second condition when checked with the simulator.
 
-The official ML optimum predicts a 2.3361 kWh or 13.49% reduction relative to
-the best observed grid combination. This is a predicted improvement rather than
-a simulator-verified energy saving.
+Five independent DE runs all found feasible candidates. Their relative energy
+spread was approximately 0.004%, providing a reproducibility check within the
+defined bounds. No SLSQP refinement is used.
 
-## Interpretation and robustness
+## Physical assumptions and limitations
 
-Held-out permutation importance identifies speed limit as the most influential
-input for both energy and travel time. Coasting point ranks second for energy,
-while acceleration ranks second for travel time.
-
-The official optimum lies exactly on the predicted 120-second boundary and is
-sensitive to small parameter changes:
-
-- 4 of 10 one-parameter perturbations remained predicted-feasible;
-- 47.405% of 20,000 nearby in-bounds samples remained predicted-feasible;
-- the conservative solution uses 0.3446 kWh more predicted energy but provides
-  a one-second predicted margin.
-
-## Figures
-
-Generated figures are stored under `results/ml/figures/`:
-
-- `model_evaluation.png`
-- `feature_importance.png`
-- `optimization_comparison.png`
-- `sensitivity_analysis.png`
-
-## Engineering limitations
-
-- The dataset comes from one simulator configuration, so the models inherit its
-  assumptions and any modeling errors.
-- Structured-holdout error is more representative than the random-split error,
-  but it does not prove performance outside the current parameter bounds.
-- The two outputs are modeled independently, so their prediction errors are not
-  coupled probabilistically.
-- The official optimum is on an active constraint and should not be treated as
-  operationally robust.
-- No uncertainty interval, real-world measurement noise, route variation,
-  passenger-load variation, adhesion variation, or controller quantization is
-  currently represented.
-- Final engineering acceptance requires simulator or physical verification of
-  selected candidates when that validation becomes part of the project scope.
+- The model represents one level, 2,000 m route and one fixed train setup.
+- Energy is integrated from positive traction power using a fixed motor
+  efficiency.
+- Regenerative braking and auxiliary consumption are not modeled.
+- Passenger load, gradients, curves, adhesion, voltage variation, and
+  controller quantization are not varied.
+- Acceleration and service-deceleration upper bounds are treated as technical
+  operating constraints.
+- ML validation measures agreement with this simulator, not with a physical
+  railway system.
+- Every reported ML operating candidate must be checked in the simulator.
+- If the fixed train or route parameters change, the pipeline must generate a
+  new LHS dataset and retrain the models; a model trained for one scenario is
+  not assumed to generalize to another.
 
 ## License
 

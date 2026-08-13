@@ -1,20 +1,20 @@
 {
   "feature_bounds": {
     "acceleration_ms2": {
-      "maximum": 1.0,
-      "minimum": 0.6
+      "maximum": 1.2,
+      "minimum": 0.4
     },
     "coasting_point_m": {
-      "maximum": 1600.0,
-      "minimum": 1000.0
+      "maximum": 1800.0,
+      "minimum": 100.0
     },
     "deceleration_ms2": {
       "maximum": 1.1,
-      "minimum": 0.7
+      "minimum": 0.5
     },
     "speed_limit_kmh": {
-      "maximum": 100.0,
-      "minimum": 60.0
+      "maximum": 110.0,
+      "minimum": 50.0
     }
   },
   "feature_columns": [
@@ -23,13 +23,22 @@
     "speed_limit_kmh",
     "coasting_point_m"
   ],
-  "numpy_version": "2.5.1",
-  "python_version": "3.12.13",
+  "numpy_version": "2.3.5",
+  "python_version": "3.13.9",
   "random_state": 42,
-  "scikit_learn_version": "1.9.0",
-  "selected_model": "polynomial_ridge",
-  "selected_model_display_name": "Polynomial Ridge Regression",
-  "selection_rule": "lowest pooled structured-holdout RMSE, then MAE",
+  "scikit_learn_version": "1.7.2",
+  "selected_model": "random_forest",
+  "selected_model_display_name": "Random Forest",
+  "selection_rule": "lowest pooled repeated-CV RMSE, then MAE",
   "target": "travel_time_s",
-  "training_rows": 875
+  "training_rows": 4500,
+  "validation": {
+    "cv_repeats": 3,
+    "cv_splits": 5,
+    "method": "repeated_k_fold",
+    "pooled_prediction_count": 13500,
+    "residual_definition": "actual_minus_predicted",
+    "underprediction_error_quantile": 0.95,
+    "underprediction_error_quantile_value": 2.8762078538011986
+  }
 }

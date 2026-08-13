@@ -96,7 +96,7 @@ class OptimizationTests(unittest.TestCase):
         ranked = rank_feasible_candidates(
             candidates,
             np.asarray([1.0, 1.0, 0.5]),
-            np.asarray([120.0, 119.0, 120.000001]),
+            np.asarray([150.0, 149.0, 150.000001]),
         )
 
         self.assertEqual(ranked, [1, 0])
@@ -113,7 +113,7 @@ class OptimizationTests(unittest.TestCase):
                 targets,
                 {target: "polynomial_ridge" for target in TARGET_COLUMNS},
                 models_directory,
-                selection_rule="test structured holdout",
+                selection_rule="test repeated cross-validation",
             )
 
             first = optimize_surrogates(
@@ -121,7 +121,6 @@ class OptimizationTests(unittest.TestCase):
                 models_directory,
                 root / "first",
                 sample_count=500,
-                local_starts=3,
                 top_results=10,
             )
             second = optimize_surrogates(
@@ -129,13 +128,12 @@ class OptimizationTests(unittest.TestCase):
                 models_directory,
                 root / "second",
                 sample_count=500,
-                local_starts=3,
                 top_results=10,
             )
 
             self.assertEqual(first["best_candidate"], second["best_candidate"])
             best = first["best_candidate"]
-            self.assertLessEqual(best["predicted_travel_time_s"], 120.0)
+            self.assertLessEqual(best["predicted_travel_time_s"], 150.0)
             self.assertEqual(best["verification_status"], "surrogate_prediction_only")
             for column_index, column in enumerate(FEATURE_COLUMNS):
                 self.assertGreaterEqual(best[column], features[:, column_index].min())

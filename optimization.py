@@ -9,7 +9,6 @@ from typing import Any, Sequence
 
 import joblib
 import numpy as np
-from scipy.optimize import minimize
 
 from ml_training import (
     DEFAULT_DATASET_PATH,
@@ -19,12 +18,12 @@ from ml_training import (
     TARGET_COLUMNS,
     load_dataset,
 )
+from study_config import DEFAULT_OPTIMIZATION_OUTPUT_DIRECTORY, TRAVEL_TIME_LIMIT_S
 
 
-DEFAULT_OUTPUT_DIRECTORY = Path("results/ml/optimization")
-DEFAULT_TRAVEL_TIME_LIMIT_S = 120.0
+DEFAULT_OUTPUT_DIRECTORY = DEFAULT_OPTIMIZATION_OUTPUT_DIRECTORY
+DEFAULT_TRAVEL_TIME_LIMIT_S = TRAVEL_TIME_LIMIT_S
 DEFAULT_SAMPLE_COUNT = 100_000
-DEFAULT_LOCAL_STARTS = 20
 DEFAULT_TOP_RESULTS = 50
 
 
@@ -182,14 +181,13 @@ def optimize_surrogates(
     *,
     travel_time_limit_s: float = DEFAULT_TRAVEL_TIME_LIMIT_S,
     sample_count: int = DEFAULT_SAMPLE_COUNT,
-    local_starts: int = DEFAULT_LOCAL_STARTS,
     top_results: int = DEFAULT_TOP_RESULTS,
     random_state: int = DEFAULT_RANDOM_STATE,
 ) -> dict[str, Any]:
-    """Minimize predicted energy subject to the predicted travel-time limit."""
+    """Rank space-filling candidates by predicted energy and travel time."""
 
-    if local_starts < 0 or top_results <= 0:
-        raise ValueError("local_starts cannot be negative and top_results must be positive.")
+    if top_results <= 0:
+        raise ValueError("top_results must be positive.")
     if not math.isfinite(travel_time_limit_s) or travel_time_limit_s <= 0:
         raise ValueError("travel_time_limit_s must be finite and positive.")
 
@@ -218,41 +216,6 @@ def optimize_surrogates(
     )
     if not ranked_indices:
         raise RuntimeError("No predicted-feasible candidate was found.")
-
-    local_candidates: list[np.ndarray] = []
-    scipy_bounds = [tuple(feature_bounds) for feature_bounds in bounds]
-
-    def energy_objective(values: np.ndarray) -> float:
-        return float(energy_model.predict(values.reshape(1, -1))[0])
-
-    def time_constraint(values: np.ndarray) -> float:
-        predicted = float(time_model.predict(values.reshape(1, -1))[0])
-        return travel_time_limit_s - predicted
-
-    for index in ranked_indices[:local_starts]:
-        result = minimize(
-            energy_objective,
-            candidates[index],
-            method="SLSQP",
-            bounds=scipy_bounds,
-            constraints={"type": "ineq", "fun": time_constraint},
-            options={"ftol": 1e-12, "maxiter": 1_000},
-        )
-        if result.success and np.all(np.isfinite(result.x)):
-            local_candidates.append(np.asarray(result.x, dtype=float))
-
-    if local_candidates:
-        candidates = _deduplicate_candidates(
-            np.vstack((candidates, np.asarray(local_candidates)))
-        )
-        predicted_energy = np.asarray(energy_model.predict(candidates), dtype=float)
-        predicted_time = np.asarray(time_model.predict(candidates), dtype=float)
-        ranked_indices = rank_feasible_candidates(
-            candidates,
-            predicted_energy,
-            predicted_time,
-            travel_time_limit_s=travel_time_limit_s,
-        )
 
     energy_model_name = metadata["energy_kwh"]["selected_model"]
     time_model_name = metadata["travel_time_s"]["selected_model"]
@@ -319,7 +282,6 @@ def optimize_surrogates(
         "random_state": random_state,
         "latin_hypercube_samples": sample_count,
         "unique_candidates_evaluated": len(candidates),
-        "successful_local_refinements": len(local_candidates),
         "feature_bounds": {
             column: {
                 "minimum": float(bounds[index, 0]),
@@ -331,7 +293,7 @@ def optimize_surrogates(
             target: metadata[target]["selected_model"] for target in TARGET_COLUMNS
         },
         "best_predicted_candidate": best,
-        "best_observed_grid_baseline": observed_baseline,
+        "best_observed_sample": observed_baseline,
         "predicted_energy_improvement_kwh": float(
             observed_baseline["energy_kwh"] - best["predicted_energy_kwh"]
         ),

@@ -27,13 +27,35 @@ from optimization import (
     load_surrogate_models,
     optimize_surrogates,
 )
+from study_config import (
+    DEFAULT_OPTIMIZATION_OUTPUT_DIRECTORY,
+    DEFAULT_ROBUSTNESS_OUTPUT_DIRECTORY,
+)
 
 
 DEFAULT_OFFICIAL_RESULT_PATH = Path(
-    "results/ml/optimization/optimal_parameters.json"
+    DEFAULT_OPTIMIZATION_OUTPUT_DIRECTORY / "optimal_parameters.json"
 )
-DEFAULT_OUTPUT_DIRECTORY = Path("results/ml/robustness")
-DEFAULT_CONSERVATIVE_TIME_LIMIT_S = 119.0
+DEFAULT_OUTPUT_DIRECTORY = DEFAULT_ROBUSTNESS_OUTPUT_DIRECTORY
+
+
+def _travel_time_safety_margin(
+    metadata: dict[str, dict[str, Any]],
+) -> tuple[float, float]:
+    """Load the one-sided travel-time error quantile saved during validation."""
+
+    try:
+        validation = metadata["travel_time_s"]["validation"]
+        quantile = float(validation["underprediction_error_quantile"])
+        margin = float(validation["underprediction_error_quantile_value"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(
+            "Travel-time model metadata does not contain a validation safety "
+            "margin. Run ml_evaluation.py before robustness analysis."
+        ) from error
+    if not 0.0 < quantile < 1.0 or not math.isfinite(margin) or margin < 0.0:
+        raise ValueError("Travel-time validation safety margin is invalid.")
+    return margin, quantile
 
 
 def _write_csv(
@@ -148,7 +170,7 @@ def analyze_models(
     sensitivity_points: int = 101,
     perturbation_fractions: Sequence[float] = (0.025, 0.05),
     joint_sample_count: int = 20_000,
-    conservative_time_limit_s: float = DEFAULT_CONSERVATIVE_TIME_LIMIT_S,
+    conservative_time_limit_s: float | None = None,
     conservative_sample_count: int = 100_000,
 ) -> dict[str, Any]:
     """Interpret selected models and quantify local robustness of the optimum."""
@@ -162,11 +184,16 @@ def analyze_models(
         for fraction in perturbation_fractions
     ):
         raise ValueError("Perturbation fractions must be in the interval (0, 0.5].")
-    if not 0.0 < conservative_time_limit_s < DEFAULT_TRAVEL_TIME_LIMIT_S:
-        raise ValueError("The conservative time limit must be between 0 and 120 s.")
-
     features, targets, _ = load_dataset(dataset_path)
     models, metadata, bounds = load_surrogate_models(models_directory)
+    safety_margin_s, safety_quantile = _travel_time_safety_margin(metadata)
+    if conservative_time_limit_s is None:
+        conservative_time_limit_s = DEFAULT_TRAVEL_TIME_LIMIT_S - safety_margin_s
+    if not 0.0 < conservative_time_limit_s < DEFAULT_TRAVEL_TIME_LIMIT_S:
+        raise ValueError(
+            "The conservative time limit must be between 0 and "
+            f"{DEFAULT_TRAVEL_TIME_LIMIT_S:g} s."
+        )
     official = _load_official_candidate(official_result_path)
     official_values = np.asarray(
         [float(official[column]) for column in FEATURE_COLUMNS], dtype=float
@@ -225,7 +252,7 @@ def analyze_models(
                     },
                     "predicted_energy_kwh": float(predicted_energy),
                     "predicted_travel_time_s": float(predicted_time),
-                    "predicted_feasible_120s": bool(
+                    "predicted_feasible_under_limit": bool(
                         predicted_time <= DEFAULT_TRAVEL_TIME_LIMIT_S
                     ),
                 }
@@ -239,7 +266,7 @@ def analyze_models(
             *FEATURE_COLUMNS,
             "predicted_energy_kwh",
             "predicted_travel_time_s",
-            "predicted_feasible_120s",
+            "predicted_feasible_under_limit",
         ),
         sensitivity_rows,
     )
@@ -274,7 +301,7 @@ def analyze_models(
                         "predicted_travel_time_s": float(travel_time[0]),
                         "energy_change_kwh": float(energy[0] - official_energy[0]),
                         "travel_time_change_s": float(travel_time[0] - official_time[0]),
-                        "predicted_feasible_120s": bool(
+                        "predicted_feasible_under_limit": bool(
                             travel_time[0] <= DEFAULT_TRAVEL_TIME_LIMIT_S
                         ),
                     }
@@ -291,7 +318,7 @@ def analyze_models(
             "predicted_travel_time_s",
             "energy_change_kwh",
             "travel_time_change_s",
-            "predicted_feasible_120s",
+            "predicted_feasible_under_limit",
         ),
         perturbation_rows,
     )
@@ -311,7 +338,7 @@ def analyze_models(
     conservative = optimize_surrogates(
         dataset_path,
         models_directory,
-        output_directory / "conservative_119s",
+        output_directory / "conservative_data_driven",
         travel_time_limit_s=conservative_time_limit_s,
         sample_count=conservative_sample_count,
         random_state=random_state,
@@ -328,6 +355,9 @@ def analyze_models(
         "verification_status": "surrogate_prediction_only",
         "official_time_limit_s": DEFAULT_TRAVEL_TIME_LIMIT_S,
         "conservative_time_limit_s": conservative_time_limit_s,
+        "travel_time_safety_margin_s": safety_margin_s,
+        "safety_margin_method": "one-sided repeated-CV residual quantile",
+        "safety_margin_quantile": safety_quantile,
         "official_candidate": {
             **{column: float(official_values[index]) for index, column in enumerate(FEATURE_COLUMNS)},
             "predicted_energy_kwh": float(official_energy[0]),
@@ -337,7 +367,8 @@ def analyze_models(
         "most_important_feature": most_important,
         "local_single_parameter_scenarios": len(perturbation_rows),
         "local_single_parameter_feasible_scenarios": sum(
-            bool(row["predicted_feasible_120s"]) for row in perturbation_rows
+            bool(row["predicted_feasible_under_limit"])
+            for row in perturbation_rows
         ),
         "joint_neighborhood": {
             "sample_count": joint_sample_count,
@@ -411,6 +442,11 @@ def main() -> None:
     print(
         "Official-neighborhood predicted feasibility: "
         f"{summary['joint_neighborhood']['predicted_feasible_percent']:.2f}%"
+    )
+    print(
+        "Data-driven travel-time safety margin: "
+        f"{summary['travel_time_safety_margin_s']:.6f} s "
+        f"(q={summary['safety_margin_quantile']:.2f})"
     )
     print(
         "Conservative candidate: "

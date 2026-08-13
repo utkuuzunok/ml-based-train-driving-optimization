@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
+
 from experiments import (
     CSV_COLUMNS,
     EXPECTED_COMBINATION_COUNT,
@@ -11,6 +13,13 @@ from experiments import (
     run_experiments,
     run_single_experiment,
     summarize_results,
+)
+from study_config import (
+    BOUNDARY_CORNER_COUNT,
+    FEATURE_COLUMNS,
+    LHS_SAMPLE_COUNT,
+    PARAMETER_BOUNDS,
+    REFERENCE_PARAMETERS,
 )
 
 
@@ -34,13 +43,38 @@ def successful_result(
 
 
 class ExperimentTests(unittest.TestCase):
-    def test_default_grid_contains_875_combinations_in_stable_order(self) -> None:
-        combinations = list(generate_parameter_combinations())
+    def test_default_design_contains_reproducible_lhs_corners_and_reference(self) -> None:
+        combinations = generate_parameter_combinations()
 
         self.assertEqual(len(combinations), EXPECTED_COMBINATION_COUNT)
-        self.assertEqual(EXPECTED_COMBINATION_COUNT, 875)
-        self.assertEqual(combinations[0], (0.6, 0.7, 60.0, 1_000.0))
-        self.assertEqual(combinations[-1], (1.0, 1.1, 100.0, 1_600.0))
+        self.assertEqual(EXPECTED_COMBINATION_COUNT, 4_500)
+        self.assertEqual(combinations, generate_parameter_combinations())
+        self.assertEqual(combinations[-1], REFERENCE_PARAMETERS)
+        self.assertEqual(len(set(combinations)), len(combinations))
+
+        lhs = np.asarray(combinations[:LHS_SAMPLE_COUNT])
+        for feature_index, feature_name in enumerate(FEATURE_COLUMNS):
+            lower, upper = PARAMETER_BOUNDS[feature_name]
+            normalized = (lhs[:, feature_index] - lower) / (upper - lower)
+            strata = np.floor(normalized * LHS_SAMPLE_COUNT).astype(int)
+            self.assertEqual(len(set(strata)), LHS_SAMPLE_COUNT)
+            self.assertTrue(np.all(lhs[:, feature_index] > lower))
+            self.assertTrue(np.all(lhs[:, feature_index] < upper))
+
+        corners = combinations[
+            LHS_SAMPLE_COUNT : LHS_SAMPLE_COUNT + BOUNDARY_CORNER_COUNT
+        ]
+        self.assertEqual(len(corners), 16)
+        for corner in corners:
+            for feature_name, value in zip(FEATURE_COLUMNS, corner):
+                self.assertIn(value, PARAMETER_BOUNDS[feature_name])
+
+    def test_lhs_seed_changes_samples_without_changing_boundaries(self) -> None:
+        first = generate_parameter_combinations(sample_count=8, random_state=1)
+        second = generate_parameter_combinations(sample_count=8, random_state=2)
+
+        self.assertNotEqual(first[:8], second[:8])
+        self.assertEqual(first[8:], second[8:])
 
     def test_successful_run_extracts_only_scalar_metrics(self) -> None:
         row = run_single_experiment(
@@ -66,7 +100,7 @@ class ExperimentTests(unittest.TestCase):
             80.0,
             1_300.0,
             simulator=lambda **parameters: successful_result(
-                travel_time_s=120.01,
+                travel_time_s=150.01,
             ),
         )
 
@@ -119,7 +153,7 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(row["error_type"], "ValueError")
         self.assertEqual(row["error_message"], "invalid combination")
 
-    def test_unexpected_failure_does_not_abort_the_grid(self) -> None:
+    def test_unexpected_failure_does_not_abort_the_design(self) -> None:
         calls = 0
 
         def sometimes_failing_simulator(
@@ -132,10 +166,10 @@ class ExperimentTests(unittest.TestCase):
             return successful_result()
 
         rows = run_experiments(
-            accelerations=(0.7, 0.8),
-            decelerations=(0.9,),
-            speed_limits=(80.0,),
-            coasting_points=(1_300.0,),
+            parameter_combinations=(
+                (0.7, 0.9, 80.0, 1_300.0),
+                (0.8, 0.9, 80.0, 1_300.0),
+            ),
             simulator=sometimes_failing_simulator,
         )
 
@@ -144,7 +178,7 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(rows[0]["error_type"], "RuntimeError")
         self.assertTrue(rows[1]["successful"])
 
-    def test_small_grid_calls_simulator_once_per_combination(self) -> None:
+    def test_small_design_calls_simulator_once_per_combination(self) -> None:
         observed_parameters = []
 
         def recording_simulator(**parameters: float) -> dict[str, object]:
@@ -152,10 +186,12 @@ class ExperimentTests(unittest.TestCase):
             return successful_result()
 
         rows = run_experiments(
-            accelerations=(0.7, 0.8),
-            decelerations=(0.9,),
-            speed_limits=(70.0, 80.0),
-            coasting_points=(1_300.0,),
+            parameter_combinations=(
+                (0.7, 0.9, 70.0, 1_300.0),
+                (0.7, 0.9, 80.0, 1_300.0),
+                (0.8, 0.9, 70.0, 1_300.0),
+                (0.8, 0.9, 80.0, 1_300.0),
+            ),
             simulator=recording_simulator,
         )
 
@@ -201,7 +237,7 @@ class ExperimentTests(unittest.TestCase):
             60.0,
             1_300.0,
             simulator=lambda **parameters: successful_result(
-                travel_time_s=125.0,
+                travel_time_s=150.01,
             ),
         )
 
@@ -232,7 +268,7 @@ class ExperimentTests(unittest.TestCase):
         row = run_single_experiment(0.8, 0.9, 80.0, 1_300.0)
 
         self.assertTrue(row["successful"])
-        self.assertLessEqual(row["travel_time_s"], 120.0)
+        self.assertLessEqual(row["travel_time_s"], 150.0)
         self.assertEqual(row["final_speed_ms"], 0.0)
 
 

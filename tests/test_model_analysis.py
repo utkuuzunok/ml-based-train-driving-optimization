@@ -81,14 +81,21 @@ class ModelAnalysisTests(unittest.TestCase):
                 targets,
                 {target: "polynomial_ridge" for target in TARGET_COLUMNS},
                 models_directory,
-                selection_rule="test structured holdout",
+                selection_rule="test repeated cross-validation",
+                validation_metadata={
+                    target: {
+                        "method": "repeated_k_fold",
+                        "underprediction_error_quantile": 0.95,
+                        "underprediction_error_quantile_value": 4.0,
+                    }
+                    for target in TARGET_COLUMNS
+                },
             )
             optimize_surrogates(
                 dataset_path,
                 models_directory,
                 optimization_directory,
                 sample_count=500,
-                local_starts=3,
                 top_results=10,
             )
 
@@ -109,8 +116,10 @@ class ModelAnalysisTests(unittest.TestCase):
             )
             self.assertLessEqual(
                 summary["conservative_candidate"]["predicted_travel_time_s"],
-                119.0,
+                146.0,
             )
+            self.assertEqual(summary["travel_time_safety_margin_s"], 4.0)
+            self.assertEqual(summary["safety_margin_quantile"], 0.95)
             self.assertGreaterEqual(
                 summary["joint_neighborhood"]["predicted_feasible_percent"], 0.0
             )

@@ -6,25 +6,25 @@ import itertools
 import math
 import time
 from pathlib import Path
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
+import numpy as np
+from scipy.stats import qmc
+
+from study_config import (
+    DEFAULT_EXPERIMENT_OUTPUT_PATH,
+    EXPECTED_EXPERIMENT_COUNT,
+    FEATURE_COLUMNS,
+    LHS_RANDOM_STATE,
+    LHS_SAMPLE_COUNT,
+    PARAMETER_BOUNDS,
+    REFERENCE_PARAMETERS,
+    TRAVEL_TIME_LIMIT_S,
+)
 from train_simulator import simulate
 
 
-ACCELERATIONS_MS2 = (0.6, 0.7, 0.8, 0.9, 1.0)
-DECELERATIONS_MS2 = (0.7, 0.8, 0.9, 1.0, 1.1)
-SPEED_LIMITS_KMH = (60.0, 70.0, 80.0, 90.0, 100.0)
-COASTING_POINTS_M = (
-    1_000.0,
-    1_100.0,
-    1_200.0,
-    1_300.0,
-    1_400.0,
-    1_500.0,
-    1_600.0,
-)
-TRAVEL_TIME_LIMIT_S = 120.0
-DEFAULT_OUTPUT_PATH = Path("results/train_experiments.csv")
+DEFAULT_OUTPUT_PATH = DEFAULT_EXPERIMENT_OUTPUT_PATH
 
 CSV_COLUMNS = (
     "acceleration_ms2",
@@ -48,12 +48,7 @@ CSV_COLUMNS = (
     "error_message",
 )
 
-EXPECTED_COMBINATION_COUNT = (
-    len(ACCELERATIONS_MS2)
-    * len(DECELERATIONS_MS2)
-    * len(SPEED_LIMITS_KMH)
-    * len(COASTING_POINTS_M)
-)
+EXPECTED_COMBINATION_COUNT = EXPECTED_EXPERIMENT_COUNT
 
 ExperimentRow = dict[str, Any]
 Simulator = Callable[..., dict[str, Any]]
@@ -61,19 +56,51 @@ ParameterCombination = tuple[float, float, float, float]
 
 
 def generate_parameter_combinations(
-    accelerations: Sequence[float] = ACCELERATIONS_MS2,
-    decelerations: Sequence[float] = DECELERATIONS_MS2,
-    speed_limits: Sequence[float] = SPEED_LIMITS_KMH,
-    coasting_points: Sequence[float] = COASTING_POINTS_M,
-) -> Iterable[ParameterCombination]:
-    """Generate the Cartesian product in a deterministic column order."""
+    *,
+    sample_count: int = LHS_SAMPLE_COUNT,
+    random_state: int = LHS_RANDOM_STATE,
+    bounds: Mapping[str, tuple[float, float]] = PARAMETER_BOUNDS,
+    reference_parameters: ParameterCombination = REFERENCE_PARAMETERS,
+) -> list[ParameterCombination]:
+    """Generate deterministic LHS samples, boundary corners, and a reference."""
 
-    return itertools.product(
-        accelerations,
-        decelerations,
-        speed_limits,
-        coasting_points,
+    if sample_count <= 0:
+        raise ValueError("sample_count must be positive.")
+    if set(bounds) != set(FEATURE_COLUMNS):
+        raise ValueError("bounds must define exactly the configured features.")
+
+    lower = np.asarray([bounds[column][0] for column in FEATURE_COLUMNS], dtype=float)
+    upper = np.asarray([bounds[column][1] for column in FEATURE_COLUMNS], dtype=float)
+    if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)):
+        raise ValueError("All parameter bounds must be finite.")
+    if np.any(lower >= upper):
+        raise ValueError("Each lower parameter bound must be below its upper bound.")
+
+    reference = tuple(float(value) for value in reference_parameters)
+    if len(reference) != len(FEATURE_COLUMNS):
+        raise ValueError("reference_parameters must contain four values.")
+    if any(
+        value < lower[index] or value > upper[index]
+        for index, value in enumerate(reference)
+    ):
+        raise ValueError("reference_parameters must lie within the bounds.")
+
+    unit_samples = qmc.LatinHypercube(
+        d=len(FEATURE_COLUMNS), seed=random_state
+    ).random(n=sample_count)
+    lhs_samples = qmc.scale(unit_samples, lower, upper)
+    corners = itertools.product(*zip(lower, upper))
+    combinations = [
+        tuple(float(value) for value in row) for row in lhs_samples
+    ]
+    combinations.extend(
+        tuple(float(value) for value in corner) for corner in corners
     )
+    combinations.append(reference)
+
+    if len(set(combinations)) != len(combinations):
+        raise RuntimeError("Sampling produced duplicate parameter combinations.")
+    return combinations
 
 
 def _base_row(
@@ -176,24 +203,19 @@ def run_single_experiment(
 
 def run_experiments(
     *,
-    accelerations: Sequence[float] = ACCELERATIONS_MS2,
-    decelerations: Sequence[float] = DECELERATIONS_MS2,
-    speed_limits: Sequence[float] = SPEED_LIMITS_KMH,
-    coasting_points: Sequence[float] = COASTING_POINTS_M,
+    parameter_combinations: Iterable[ParameterCombination] | None = None,
     simulator: Simulator = simulate,
     travel_time_limit_s: float = TRAVEL_TIME_LIMIT_S,
 ) -> list[ExperimentRow]:
-    """Run a parameter grid while preserving failed combinations as rows."""
+    """Run an experiment design while preserving failed combinations as rows."""
 
     rows = []
-    for acceleration, deceleration, speed_limit, coasting_point in (
-        generate_parameter_combinations(
-            accelerations,
-            decelerations,
-            speed_limits,
-            coasting_points,
-        )
-    ):
+    combinations = (
+        generate_parameter_combinations()
+        if parameter_combinations is None
+        else parameter_combinations
+    )
+    for acceleration, deceleration, speed_limit, coasting_point in combinations:
         rows.append(
             run_single_experiment(
                 acceleration,
@@ -220,6 +242,7 @@ def export_results_csv(
             csv_file,
             fieldnames=CSV_COLUMNS,
             extrasaction="raise",
+            lineterminator="\n",
         )
         writer.writeheader()
         writer.writerows(rows)
@@ -304,7 +327,7 @@ def print_summary(summary: dict[str, Any], output_path: Path) -> None:
 
 
 def main() -> None:
-    """Run the approved full grid when this module is invoked explicitly."""
+    """Run the configured LHS experiment design when invoked explicitly."""
 
     parser = argparse.ArgumentParser(
         description="Generate the train-simulation experiment dataset.",
@@ -315,10 +338,26 @@ def main() -> None:
         default=DEFAULT_OUTPUT_PATH,
         help="CSV output path (default: results/train_experiments.csv).",
     )
+    parser.add_argument(
+        "--lhs-samples",
+        type=int,
+        default=LHS_SAMPLE_COUNT,
+        help="Number of Latin Hypercube samples before corners and reference.",
+    )
+    parser.add_argument(
+        "--random-state",
+        type=int,
+        default=LHS_RANDOM_STATE,
+        help="Seed used to reproduce the Latin Hypercube design.",
+    )
     arguments = parser.parse_args()
 
     started_at = time.perf_counter()
-    rows = run_experiments()
+    combinations = generate_parameter_combinations(
+        sample_count=arguments.lhs_samples,
+        random_state=arguments.random_state,
+    )
+    rows = run_experiments(parameter_combinations=combinations)
     elapsed_time_s = time.perf_counter() - started_at
     output_path = export_results_csv(rows, arguments.output)
     summary = summarize_results(rows, elapsed_time_s=elapsed_time_s)
