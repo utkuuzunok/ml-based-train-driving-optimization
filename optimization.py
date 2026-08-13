@@ -10,7 +10,7 @@ from typing import Any, Sequence
 import joblib
 import numpy as np
 
-from ml_training import (
+from ml_models import (
     DEFAULT_DATASET_PATH,
     DEFAULT_MODELS_DIRECTORY,
     DEFAULT_RANDOM_STATE,

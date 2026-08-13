@@ -20,7 +20,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from ml_training import FEATURE_COLUMNS, MODEL_DISPLAY_NAMES, TARGET_COLUMNS
+from ml_models import FEATURE_COLUMNS, MODEL_DISPLAY_NAMES, TARGET_COLUMNS
 from study_config import DEFAULT_ML_RESULTS_DIRECTORY, TRAVEL_TIME_LIMIT_S
 
 
