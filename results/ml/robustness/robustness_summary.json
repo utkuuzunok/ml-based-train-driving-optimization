@@ -1,63 +1,66 @@
 {
   "conservative_candidate": {
-    "acceleration_ms2": 0.9999999999999989,
-    "coasting_point_m": 1000.0,
-    "deceleration_ms2": 1.1,
-    "energy_model": "polynomial_ridge",
-    "predicted_energy_kwh": 15.320945725146236,
+    "acceleration_ms2": 1.0403487461643395,
+    "coasting_point_m": 138.52617973753706,
+    "deceleration_ms2": 1.0314612361962925,
+    "energy_model": "random_forest",
+    "predicted_energy_kwh": 8.611108743701198,
     "predicted_feasible": true,
-    "predicted_travel_time_s": 118.9999999999998,
+    "predicted_travel_time_s": 145.91712676710281,
     "rank": 1,
-    "speed_limit_kmh": 74.53515391363851,
-    "travel_time_margin_s": 1.9895196601282805e-13,
-    "travel_time_model": "polynomial_ridge",
+    "speed_limit_kmh": 80.01604684416756,
+    "travel_time_margin_s": 1.2066653790959947,
+    "travel_time_model": "random_forest",
     "verification_status": "surrogate_prediction_only"
   },
-  "conservative_time_limit_s": 119.0,
+  "conservative_time_limit_s": 147.1237921461988,
   "joint_neighborhood": {
     "maximum_fraction_of_each_feature_range": 0.05,
     "parameter_bounds": {
       "acceleration_ms2": {
-        "maximum": 1.0,
-        "minimum": 0.98
+        "maximum": 1.0459539345382272,
+        "minimum": 0.9659539345382271
       },
       "coasting_point_m": {
-        "maximum": 1030.0,
-        "minimum": 1000.0
+        "maximum": 395.63418404532104,
+        "minimum": 225.63418404532104
       },
       "deceleration_ms2": {
-        "maximum": 1.1,
-        "minimum": 1.08
+        "maximum": 1.0356091137889278,
+        "minimum": 0.9756091137889278
       },
       "speed_limit_kmh": {
-        "maximum": 75.63826195462096,
-        "minimum": 71.63826195462096
+        "maximum": 60.4066076122481,
+        "minimum": 54.4066076122481
       }
     },
-    "predicted_energy_kwh_maximum": 15.820210884936703,
-    "predicted_energy_kwh_median": 15.016784293906223,
-    "predicted_energy_kwh_minimum": 14.224196406988867,
-    "predicted_feasible_count": 9481,
-    "predicted_feasible_percent": 47.405,
-    "predicted_travel_time_s_maximum": 122.55464167765633,
-    "predicted_travel_time_s_median": 120.10447280994441,
-    "predicted_travel_time_s_minimum": 117.77008473003788,
+    "predicted_energy_kwh_maximum": 9.35584724092343,
+    "predicted_energy_kwh_median": 8.384764569576372,
+    "predicted_energy_kwh_minimum": 7.4492787240214,
+    "predicted_feasible_count": 9826,
+    "predicted_feasible_percent": 49.13,
+    "predicted_travel_time_s_maximum": 162.41715232755462,
+    "predicted_travel_time_s_median": 150.16825950098584,
+    "predicted_travel_time_s_minimum": 144.2177028582524,
     "sample_count": 20000
   },
-  "local_single_parameter_feasible_scenarios": 4,
-  "local_single_parameter_scenarios": 10,
+  "local_single_parameter_feasible_scenarios": 9,
+  "local_single_parameter_scenarios": 16,
   "most_important_feature": {
     "energy_kwh": "speed_limit_kmh",
     "travel_time_s": "speed_limit_kmh"
   },
   "official_candidate": {
-    "acceleration_ms2": 1.0,
-    "coasting_point_m": 1000.0,
-    "deceleration_ms2": 1.1,
-    "predicted_energy_kwh": 14.976386504466346,
-    "predicted_travel_time_s": 120.0,
-    "speed_limit_kmh": 73.63826195462096
+    "acceleration_ms2": 1.0059539345382271,
+    "coasting_point_m": 310.63418404532104,
+    "deceleration_ms2": 1.0056091137889278,
+    "predicted_energy_kwh": 8.371430428402055,
+    "predicted_travel_time_s": 149.9817509323797,
+    "speed_limit_kmh": 57.4066076122481
   },
-  "official_time_limit_s": 120.0,
+  "official_time_limit_s": 150.0,
+  "safety_margin_method": "one-sided repeated-CV residual quantile",
+  "safety_margin_quantile": 0.95,
+  "travel_time_safety_margin_s": 2.8762078538011986,
   "verification_status": "surrogate_prediction_only"
 }

@@ -21,10 +21,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from ml_training import FEATURE_COLUMNS, MODEL_DISPLAY_NAMES, TARGET_COLUMNS
+from study_config import DEFAULT_ML_RESULTS_DIRECTORY, TRAVEL_TIME_LIMIT_S
 
 
-DEFAULT_RESULTS_DIRECTORY = Path("results/ml")
-DEFAULT_FIGURES_DIRECTORY = Path("results/ml/figures")
+DEFAULT_RESULTS_DIRECTORY = DEFAULT_ML_RESULTS_DIRECTORY
+DEFAULT_FIGURES_DIRECTORY = DEFAULT_RESULTS_DIRECTORY / "figures"
 
 MODEL_COLORS = {
     "linear_regression": "#0072B2",
@@ -55,10 +56,9 @@ def _save_figure(figure: Any, path: Path) -> None:
 
 
 def _plot_model_evaluation(rows: list[dict[str, str]], path: Path) -> None:
-    overall = [row for row in rows if row["held_out_feature"] == "all_features"]
     figure, axes = plt.subplots(1, 2, figsize=(11, 4.2))
     for axis, target in zip(axes, TARGET_COLUMNS):
-        target_rows = [row for row in overall if row["target"] == target]
+        target_rows = [row for row in rows if row["target"] == target]
         target_rows.sort(key=lambda row: float(row["rmse"]), reverse=True)
         labels = [MODEL_DISPLAY_NAMES[row["model"]] for row in target_rows]
         values = [float(row["rmse"]) for row in target_rows]
@@ -66,11 +66,11 @@ def _plot_model_evaluation(rows: list[dict[str, str]], path: Path) -> None:
         bars = axis.barh(labels, values, color=colors)
         axis.bar_label(bars, fmt="%.3f", padding=4)
         axis.set_title(TARGET_LABELS[target])
-        axis.set_xlabel("Structured-holdout RMSE")
+        axis.set_xlabel("Repeated-CV RMSE")
         axis.grid(axis="x", alpha=0.25)
         axis.set_axisbelow(True)
         axis.spines[["top", "right"]].set_visible(False)
-    figure.suptitle("Generalization to unseen parameter levels")
+    figure.suptitle("Repeated cross-validation performance")
     figure.tight_layout()
     _save_figure(figure, path)
 
@@ -100,12 +100,12 @@ def _plot_optimization_comparison(
     robustness_document: dict[str, Any],
     path: Path,
 ) -> None:
-    baseline = official_document["best_observed_grid_baseline"]
+    baseline = official_document["best_observed_sample"]
     official = robustness_document["official_candidate"]
     conservative = robustness_document["conservative_candidate"]
     points = (
         (
-            "Best observed grid",
+            "Best observed sample",
             float(baseline["travel_time_s"]),
             float(baseline["energy_kwh"]),
             "#0072B2",
@@ -129,7 +129,7 @@ def _plot_optimization_comparison(
 
     figure, axis = plt.subplots(figsize=(8.5, 5.2))
     annotation_positions = {
-        "Best observed grid": (-10, 8, "right"),
+        "Best observed sample": (-10, 8, "right"),
         "Official ML optimum": (8, 8, "left"),
         "Conservative ML solution": (8, 8, "left"),
     }
@@ -151,11 +151,16 @@ def _plot_optimization_comparison(
             textcoords="offset points",
             ha=alignment,
         )
-    axis.axvline(120.0, color="#555555", linestyle="--", linewidth=1.4)
+    axis.axvline(
+        TRAVEL_TIME_LIMIT_S,
+        color="#555555",
+        linestyle="--",
+        linewidth=1.4,
+    )
     axis.text(
-        120.0,
+        TRAVEL_TIME_LIMIT_S,
         axis.get_ylim()[1],
-        "120 s limit ",
+        f"{TRAVEL_TIME_LIMIT_S:g} s limit ",
         va="top",
         ha="right",
     )
@@ -194,7 +199,12 @@ def _plot_sensitivity(rows: list[dict[str, str]], path: Path) -> None:
             color="#D55E00",
             label="Travel time [s]",
         )[0]
-        time_axis.axhline(120.0, color="#555555", linestyle="--", linewidth=1.0)
+        time_axis.axhline(
+            TRAVEL_TIME_LIMIT_S,
+            color="#555555",
+            linestyle="--",
+            linewidth=1.0,
+        )
         time_axis.set_ylabel("Travel time [s]", color="#D55E00")
         time_axis.tick_params(axis="y", labelcolor="#D55E00")
         time_axis.spines["top"].set_visible(False)
@@ -217,8 +227,8 @@ def generate_report_figures(
 
     results_directory = Path(results_directory)
     figures_directory = Path(figures_directory)
-    structured_rows = _read_csv(
-        results_directory / "structured_holdout" / "summary_metrics.csv"
+    evaluation_rows = _read_csv(
+        results_directory / "repeated_cv" / "summary_metrics.csv"
     )
     importance_rows = _read_csv(
         results_directory / "robustness" / "permutation_importance.csv"
@@ -244,7 +254,7 @@ def generate_report_figures(
         / "optimization_comparison.png",
         "sensitivity_analysis": figures_directory / "sensitivity_analysis.png",
     }
-    _plot_model_evaluation(structured_rows, paths["model_evaluation"])
+    _plot_model_evaluation(evaluation_rows, paths["model_evaluation"])
     _plot_feature_importance(importance_rows, paths["feature_importance"])
     _plot_optimization_comparison(
         official_document, robustness_document, paths["optimization_comparison"]

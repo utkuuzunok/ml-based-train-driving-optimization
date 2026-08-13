@@ -9,21 +9,25 @@ from typing import Any, Sequence
 import numpy as np
 from sklearn.base import clone
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import RepeatedKFold
 
 from ml_training import (
     DEFAULT_DATASET_PATH,
     DEFAULT_MODELS_DIRECTORY,
     DEFAULT_RANDOM_STATE,
-    FEATURE_COLUMNS,
     MODEL_DISPLAY_NAMES,
     TARGET_COLUMNS,
     build_models,
     fit_and_save_models,
     load_dataset,
 )
+from study_config import DEFAULT_REPEATED_CV_DIRECTORY
 
 
-DEFAULT_OUTPUT_DIRECTORY = Path("results/ml/structured_holdout")
+DEFAULT_OUTPUT_DIRECTORY = DEFAULT_REPEATED_CV_DIRECTORY
+DEFAULT_CV_SPLITS = 5
+DEFAULT_CV_REPEATS = 3
+SAFETY_QUANTILE = 0.95
 
 
 def regression_metrics(
@@ -50,17 +54,23 @@ def _write_csv(
         writer.writerows(rows)
 
 
-def evaluate_structured_holdouts(
+def evaluate_repeated_cv(
     dataset_path: Path | str = DEFAULT_DATASET_PATH,
     output_directory: Path | str = DEFAULT_OUTPUT_DIRECTORY,
     models_directory: Path | str = DEFAULT_MODELS_DIRECTORY,
     *,
     random_state: int = DEFAULT_RANDOM_STATE,
+    cv_splits: int = DEFAULT_CV_SPLITS,
+    cv_repeats: int = DEFAULT_CV_REPEATS,
     random_forest_estimators: int = 300,
 ) -> dict[str, Any]:
-    """Evaluate interpolation and boundary generalization by parameter level."""
+    """Select models using deterministic repeated K-fold cross-validation."""
 
     features, targets, _ = load_dataset(dataset_path)
+    if cv_splits < 2 or cv_splits > len(features):
+        raise ValueError("cv_splits must be between 2 and the dataset row count.")
+    if cv_repeats <= 0:
+        raise ValueError("cv_repeats must be positive.")
     output_directory = Path(output_directory)
     models = build_models(
         random_state=random_state,
@@ -70,88 +80,57 @@ def evaluate_structured_holdouts(
     fold_rows: list[dict[str, Any]] = []
     summary_rows: list[dict[str, Any]] = []
     selected_models: dict[str, str] = {}
+    validation_metadata: dict[str, dict[str, Any]] = {}
+    splitter = RepeatedKFold(
+        n_splits=cv_splits,
+        n_repeats=cv_repeats,
+        random_state=random_state,
+    )
+    splits = list(splitter.split(features))
 
     for target_name in TARGET_COLUMNS:
         target = targets[target_name]
-        overall_predictions: dict[str, list[np.ndarray]] = {
+        model_predictions: dict[str, list[np.ndarray]] = {
             model_name: [] for model_name in models
         }
-        overall_actual: list[np.ndarray] = []
-
-        for feature_index, feature_name in enumerate(FEATURE_COLUMNS):
-            levels = np.unique(features[:, feature_index])
-            if len(levels) < 2:
-                raise ValueError(
-                    f"Structured holdout requires at least two levels for {feature_name}."
+        actual_folds: list[np.ndarray] = []
+        for split_index, (train_indices, test_indices) in enumerate(splits):
+            repeat_index = split_index // cv_splits + 1
+            fold_index = split_index % cv_splits + 1
+            actual = target[test_indices]
+            actual_folds.append(actual)
+            for model_name, model in models.items():
+                fitted = clone(model).fit(
+                    features[train_indices], target[train_indices]
                 )
-
-            feature_actual: list[np.ndarray] = []
-            feature_predictions: dict[str, list[np.ndarray]] = {
-                model_name: [] for model_name in models
-            }
-
-            for held_out_value in levels:
-                test_mask = features[:, feature_index] == held_out_value
-                train_mask = ~test_mask
-                actual = target[test_mask]
-                feature_actual.append(actual)
-
-                if held_out_value in (levels[0], levels[-1]):
-                    holdout_type = "boundary_extrapolation"
-                else:
-                    holdout_type = "interpolation"
-
-                for model_name, model in models.items():
-                    fitted = clone(model).fit(features[train_mask], target[train_mask])
-                    predicted = fitted.predict(features[test_mask])
-                    feature_predictions[model_name].append(predicted)
-                    fold_rows.append(
-                        {
-                            "target": target_name,
-                            "model": model_name,
-                            "held_out_feature": feature_name,
-                            "held_out_value": float(held_out_value),
-                            "holdout_type": holdout_type,
-                            "training_rows": int(train_mask.sum()),
-                            "test_rows": int(test_mask.sum()),
-                            **regression_metrics(actual, predicted),
-                        }
-                    )
-
-            combined_actual = np.concatenate(feature_actual)
-            overall_actual.append(combined_actual)
-            for model_name in models:
-                combined_prediction = np.concatenate(feature_predictions[model_name])
-                overall_predictions[model_name].append(combined_prediction)
-                summary_rows.append(
+                predicted = fitted.predict(features[test_indices])
+                model_predictions[model_name].append(predicted)
+                fold_rows.append(
                     {
                         "target": target_name,
                         "model": model_name,
-                        "held_out_feature": feature_name,
-                        "fold_count": len(levels),
-                        "prediction_count": len(combined_actual),
-                        **regression_metrics(combined_actual, combined_prediction),
-                        "selected": False,
+                        "repeat": repeat_index,
+                        "fold": fold_index,
+                        "training_rows": len(train_indices),
+                        "test_rows": len(test_indices),
+                        **regression_metrics(actual, predicted),
                     }
                 )
 
-        combined_overall_actual = np.concatenate(overall_actual)
+        combined_actual = np.concatenate(actual_folds)
         target_overall_rows: list[dict[str, Any]] = []
         for model_name in models:
-            combined_overall_prediction = np.concatenate(
-                overall_predictions[model_name]
-            )
+            combined_prediction = np.concatenate(model_predictions[model_name])
+            underprediction_error = combined_actual - combined_prediction
             overall_row = {
                 "target": target_name,
                 "model": model_name,
-                "held_out_feature": "all_features",
-                "fold_count": sum(
-                    len(np.unique(features[:, feature_index]))
-                    for feature_index in range(len(FEATURE_COLUMNS))
-                ),
-                "prediction_count": len(combined_overall_actual),
-                **regression_metrics(
-                    combined_overall_actual, combined_overall_prediction
+                "fold_count": len(splits),
+                "prediction_count": len(combined_actual),
+                **regression_metrics(combined_actual, combined_prediction),
+                "underprediction_error_p95": max(
+                    0.0,
+                    float(np.quantile(underprediction_error, SAFETY_QUANTILE)),
                 ),
                 "selected": False,
             }
@@ -163,14 +142,24 @@ def evaluate_structured_holdouts(
         )
         winner["selected"] = True
         selected_models[target_name] = winner["model"]
+        validation_metadata[target_name] = {
+            "method": "repeated_k_fold",
+            "cv_splits": cv_splits,
+            "cv_repeats": cv_repeats,
+            "pooled_prediction_count": winner["prediction_count"],
+            "residual_definition": "actual_minus_predicted",
+            "underprediction_error_quantile": SAFETY_QUANTILE,
+            "underprediction_error_quantile_value": winner[
+                "underprediction_error_p95"
+            ],
+        }
         summary_rows.extend(target_overall_rows)
 
     fold_fields = (
         "target",
         "model",
-        "held_out_feature",
-        "held_out_value",
-        "holdout_type",
+        "repeat",
+        "fold",
         "training_rows",
         "test_rows",
         "mae",
@@ -180,12 +169,12 @@ def evaluate_structured_holdouts(
     summary_fields = (
         "target",
         "model",
-        "held_out_feature",
         "fold_count",
         "prediction_count",
         "mae",
         "rmse",
         "r2",
+        "underprediction_error_p95",
         "selected",
     )
     fold_path = output_directory / "fold_metrics.csv"
@@ -197,18 +186,17 @@ def evaluate_structured_holdouts(
         targets,
         selected_models,
         models_directory,
-        selection_rule="lowest pooled structured-holdout RMSE, then MAE",
+        selection_rule="lowest pooled repeated-CV RMSE, then MAE",
+        validation_metadata=validation_metadata,
         random_state=random_state,
         random_forest_estimators=random_forest_estimators,
     )
 
     return {
         "dataset_rows": len(features),
-        "folds_per_target": sum(
-            len(np.unique(features[:, feature_index]))
-            for feature_index in range(len(FEATURE_COLUMNS))
-        ),
+        "folds_per_target": len(splits),
         "selected_models": selected_models,
+        "validation_metadata": validation_metadata,
         "saved_model_paths": {
             target: str(path) for target, path in saved_model_paths.items()
         },
@@ -219,7 +207,7 @@ def evaluate_structured_holdouts(
 
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Evaluate models by holding out complete parameter levels."
+        description="Evaluate models using deterministic repeated K-fold CV."
     )
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET_PATH)
     parser.add_argument(
@@ -233,15 +221,15 @@ def _build_argument_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     arguments = _build_argument_parser().parse_args()
-    summary = evaluate_structured_holdouts(
+    summary = evaluate_repeated_cv(
         arguments.dataset,
         arguments.output_directory,
         arguments.models_directory,
     )
     print(f"Dataset rows: {summary['dataset_rows']}")
-    print(f"Structured folds per target: {summary['folds_per_target']}")
+    print(f"Repeated-CV folds per target: {summary['folds_per_target']}")
     for target, model in summary["selected_models"].items():
-        print(f"Best structured-holdout model for {target}: {MODEL_DISPLAY_NAMES[model]}")
+        print(f"Best repeated-CV model for {target}: {MODEL_DISPLAY_NAMES[model]}")
     print(f"Summary: {summary['summary_metrics_path']}")
 
 

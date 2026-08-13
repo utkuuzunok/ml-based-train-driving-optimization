@@ -6,7 +6,7 @@ import json
 import math
 import platform
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import joblib
 import numpy as np
@@ -19,20 +19,20 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
-
-FEATURE_COLUMNS = (
-    "acceleration_ms2",
-    "deceleration_ms2",
-    "speed_limit_kmh",
-    "coasting_point_m",
+from study_config import (
+    DEFAULT_EXPERIMENT_OUTPUT_PATH,
+    DEFAULT_ML_RESULTS_DIRECTORY,
+    DEFAULT_MODELS_DIRECTORY as STUDY_DEFAULT_MODELS_DIRECTORY,
+    FEATURE_COLUMNS,
 )
+
 TARGET_COLUMNS = ("energy_kwh", "travel_time_s")
 STATUS_COLUMNS = ("input_valid", "simulation_completed", "feasible")
 REQUIRED_COLUMNS = FEATURE_COLUMNS + TARGET_COLUMNS + STATUS_COLUMNS
 
-DEFAULT_DATASET_PATH = Path("results/train_experiments.csv")
-DEFAULT_RESULTS_DIRECTORY = Path("results/ml")
-DEFAULT_MODELS_DIRECTORY = Path("models")
+DEFAULT_DATASET_PATH = DEFAULT_EXPERIMENT_OUTPUT_PATH
+DEFAULT_RESULTS_DIRECTORY = DEFAULT_ML_RESULTS_DIRECTORY
+DEFAULT_MODELS_DIRECTORY = STUDY_DEFAULT_MODELS_DIRECTORY
 DEFAULT_RANDOM_STATE = 42
 DEFAULT_TEST_SIZE = 0.2
 DEFAULT_CV_FOLDS = 5
@@ -200,6 +200,7 @@ def fit_and_save_models(
     models_directory: Path | str = DEFAULT_MODELS_DIRECTORY,
     *,
     selection_rule: str,
+    validation_metadata: Mapping[str, Mapping[str, Any]] | None = None,
     random_state: int = DEFAULT_RANDOM_STATE,
     random_forest_estimators: int = 300,
 ) -> dict[str, Path]:
@@ -249,6 +250,13 @@ def fit_and_save_models(
             "numpy_version": np.__version__,
             "scikit_learn_version": sklearn.__version__,
         }
+        if validation_metadata is not None:
+            target_validation = validation_metadata.get(target_name)
+            if target_validation is None:
+                raise ValueError(
+                    f"Validation metadata is missing for {target_name}."
+                )
+            metadata["validation"] = dict(target_validation)
         metadata_path = model_path.with_suffix(".metadata.json")
         metadata_path.write_text(
             json.dumps(metadata, indent=2, sort_keys=True) + "\n",

@@ -1,0 +1,22 @@
+{
+  "best_verified_candidate": {
+    "acceleration_ms2": 1.1602690268770837,
+    "actual_energy_kwh": 8.7306908172673,
+    "actual_travel_time_s": 146.23759456200045,
+    "coasting_point_m": 248.3769371533137,
+    "deceleration_ms2": 1.099903606846485,
+    "energy_error_kwh": 0.010580095602275463,
+    "final_position_error_m": 0.0,
+    "predicted_energy_kwh": 8.720110721665025,
+    "predicted_travel_time_s": 146.2577899695618,
+    "simulator_feasible": true,
+    "speed_limit_kmh": 59.1860078358755,
+    "surrogate_rank": 6,
+    "travel_time_error_s": -0.020195407561345746,
+    "verified_successful": true
+  },
+  "candidates_checked": 50,
+  "travel_time_limit_s": 150.0,
+  "verification_status": "simulator_verified",
+  "verified_successful_candidates": 50
+}
