@@ -13,7 +13,7 @@ from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
-from ml_training import (
+from ml_models import (
     DEFAULT_DATASET_PATH,
     DEFAULT_MODELS_DIRECTORY,
     DEFAULT_RANDOM_STATE,

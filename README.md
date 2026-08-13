@@ -20,20 +20,18 @@ provides an independent simulator-based reference.
 | `study_config.py` | Shared parameter ranges, limits, and output paths |
 | `train_simulator.py` | Train motion, stopping logic, energy, and feasibility |
 | `simulation_adapter.py` | Translation between ML features and simulator inputs |
-| `plotting.py` | Visualization of a single simulation history |
-| `main.py` | One example scenario |
 | `experiments.py` | Reproducible Latin Hypercube sampling, batch simulation, and CSV export |
-| `ml_training.py` | Train and evaluate the three regression models |
-| `ml_evaluation.py` | Repeated K-fold evaluation and model selection |
+| `ml_models.py` | Dataset loading, model definitions, and fitted-model persistence |
+| `ml_evaluation.py` | Repeated K-fold evaluation, model selection, and final fitting |
 | `optimization.py` | Rank continuous surrogate candidates without calling the simulator |
 | `optimization_verification.py` | Verify ML candidates in the simulator |
 | `direct_optimization.py` | Multi-seed Differential Evolution on the simulator |
 | `model_analysis.py` | Optional model importance, sensitivity, and robustness analysis |
 | `reporting.py` | Optional figure generation from saved results |
 
-Simulation, ML prediction, candidate verification, direct optimization, and
-visualization remain separate. This makes prediction errors explicit and keeps
-future extensions from silently changing the simulator.
+Simulation, dataset generation, ML prediction, candidate verification, direct
+optimization, and reporting remain separate. This makes prediction errors
+explicit and keeps future extensions from silently changing the simulator.
 
 ## Installation
 
@@ -51,7 +49,6 @@ Run the pipeline in this order:
 
 ```bash
 python experiments.py
-python ml_training.py
 python ml_evaluation.py
 python optimization.py
 python optimization_verification.py

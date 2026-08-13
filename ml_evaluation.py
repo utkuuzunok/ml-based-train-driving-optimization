@@ -11,7 +11,7 @@ from sklearn.base import clone
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import RepeatedKFold
 
-from ml_training import (
+from ml_models import (
     DEFAULT_DATASET_PATH,
     DEFAULT_MODELS_DIRECTORY,
     DEFAULT_RANDOM_STATE,

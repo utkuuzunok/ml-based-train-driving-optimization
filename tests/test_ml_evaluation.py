@@ -10,7 +10,7 @@ import numpy as np
 
 import ml_evaluation
 from ml_evaluation import evaluate_repeated_cv
-from ml_training import FEATURE_COLUMNS, STATUS_COLUMNS, TARGET_COLUMNS
+from ml_models import FEATURE_COLUMNS, STATUS_COLUMNS, TARGET_COLUMNS
 
 
 def write_sampled_dataset(path: Path) -> None:

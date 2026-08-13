@@ -1,7 +1,7 @@
 import unittest
 
 from experiments import DEFAULT_OUTPUT_PATH
-from ml_training import DEFAULT_DATASET_PATH
+from ml_models import DEFAULT_DATASET_PATH
 from study_config import (
     BOUNDARY_CORNER_COUNT,
     EXPECTED_EXPERIMENT_COUNT,

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 
 import reporting
-from ml_training import FEATURE_COLUMNS
+from ml_models import FEATURE_COLUMNS
 from reporting import generate_report_figures
 
 

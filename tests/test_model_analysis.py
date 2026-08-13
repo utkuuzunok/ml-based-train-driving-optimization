@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 import model_analysis
-from ml_training import (
+from ml_models import (
     FEATURE_COLUMNS,
     STATUS_COLUMNS,
     TARGET_COLUMNS,
