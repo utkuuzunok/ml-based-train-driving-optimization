@@ -26,6 +26,7 @@ provides an independent simulator-based reference.
 | `optimization.py` | Rank continuous surrogate candidates without calling the simulator |
 | `optimization_verification.py` | Verify ML candidates in the simulator |
 | `direct_optimization.py` | Multi-seed Differential Evolution on the simulator |
+| `coasting_analysis.py` | Controlled optimized-coasting versus no-coasting comparison |
 | `model_analysis.py` | Optional model importance, sensitivity, and robustness analysis |
 | `reporting.py` | Optional figure generation from saved results |
 
@@ -53,6 +54,7 @@ python ml_evaluation.py
 python optimization.py
 python optimization_verification.py
 python direct_optimization.py
+python coasting_analysis.py
 python model_analysis.py
 python reporting.py
 python -m unittest discover -s tests -v
@@ -146,6 +148,23 @@ Five independent DE runs all found feasible candidates. Their relative energy
 spread was approximately 0.004%, providing a reproducibility check within the
 defined bounds. No SLSQP refinement is used.
 
+The controlled coasting analysis keeps the official 150-second constraint and
+the configured metro operating bounds fixed. It compares the best direct-DE
+solution with an independently optimized strategy whose coasting point is fixed
+at the 2,000 m route end, so there is no intentional coasting before braking.
+Both finalists are rerun in the simulator, and the script exports their speed,
+energy, and travel-time comparison figure.
+
+| Directly optimized strategy | Energy | Travel time |
+|---|---:|---:|
+| Optimized coasting | 8.24112 kWh | 149.99910 s |
+| No intentional coasting | 9.53793 kWh | 150.00000 s |
+
+Under this controlled simulator comparison, optimized coasting reduces
+traction energy by 1.29680 kWh, or approximately 13.60%, relative to the
+independently optimized no-coasting strategy. This is a simulator-specific
+comparison under the configured assumptions, not a field energy-saving claim.
+
 ## Physical assumptions and limitations
 
 - The model represents one level, 2,000 m route and one fixed train setup.
@@ -155,7 +174,8 @@ defined bounds. No SLSQP refinement is used.
 - Passenger load, gradients, curves, adhesion, voltage variation, and
   controller quantization are not varied.
 - Acceleration and service-deceleration upper bounds are treated as technical
-  operating constraints.
+  metro operating constraints, not domains to expand automatically when a
+  constrained optimum touches a bound.
 - ML validation measures agreement with this simulator, not with a physical
   railway system.
 - Every reported ML operating candidate must be checked in the simulator.

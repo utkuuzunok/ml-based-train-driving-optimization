@@ -36,4 +36,7 @@ DEFAULT_OPTIMIZATION_OUTPUT_DIRECTORY = Path("results/ml/optimization")
 DEFAULT_DIRECT_OPTIMIZATION_OUTPUT_DIRECTORY = Path(
     "results/ml/direct_optimization"
 )
+DEFAULT_COASTING_COMPARISON_OUTPUT_DIRECTORY = Path(
+    "results/ml/coasting_comparison"
+)
 DEFAULT_ROBUSTNESS_OUTPUT_DIRECTORY = Path("results/ml/robustness")
