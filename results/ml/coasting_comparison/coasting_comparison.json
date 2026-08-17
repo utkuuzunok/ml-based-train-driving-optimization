@@ -1,0 +1,58 @@
+{
+  "energy_saving_kwh": 1.2968048045285645,
+  "energy_saving_percent": 13.596294507348299,
+  "method": "controlled direct-simulation coasting comparison",
+  "no_coasting_definition": "coasting point fixed at the route end; traction/cruising continues until the braking controller starts",
+  "no_coasting_energy_spread_kwh": 0.004394793823950138,
+  "no_coasting_relative_energy_spread": 0.00046077027877162936,
+  "no_coasting_successful_runs": 5,
+  "no_coasting_total_runs": 5,
+  "no_intentional_coasting": {
+    "acceleration_ms2": 1.1999999905501928,
+    "coasting_point_m": 2000.0,
+    "deceleration_ms2": 1.0999517018117166,
+    "energy_kwh": 9.537928174677953,
+    "feasible": true,
+    "final_position_error_m": 0.0,
+    "speed_limit_kmh": 52.43991266033054,
+    "travel_time_s": 149.99999968483974
+  },
+  "optimized_coasting": {
+    "acceleration_ms2": 1.1995629256125655,
+    "coasting_point_m": 110.44982514156573,
+    "deceleration_ms2": 1.099142284260052,
+    "energy_kwh": 8.241123370149388,
+    "feasible": true,
+    "final_position_error_m": 0.0,
+    "speed_limit_kmh": 58.291332417884725,
+    "travel_time_s": 149.99910458331098
+  },
+  "parameter_bounds": {
+    "acceleration_ms2": [
+      0.4,
+      1.2
+    ],
+    "coasting_point_m": [
+      100.0,
+      1800.0
+    ],
+    "deceleration_ms2": [
+      0.5,
+      1.1
+    ],
+    "speed_limit_kmh": [
+      50.0,
+      110.0
+    ]
+  },
+  "physical_bounds_treated_as_hard_constraints": true,
+  "seeds": [
+    11,
+    29,
+    47,
+    71,
+    101
+  ],
+  "travel_time_limit_s": 150.0,
+  "verification_status": "simulator_verified"
+}

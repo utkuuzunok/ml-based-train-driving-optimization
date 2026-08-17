@@ -1,0 +1,3 @@
+strategy,acceleration_ms2,deceleration_ms2,speed_limit_kmh,coasting_point_m,energy_kwh,travel_time_s,final_position_error_m,feasible,travel_time_limit_s,verification_status
+optimized_coasting,1.1995629256125655,1.099142284260052,58.291332417884725,110.44982514156573,8.241123370149388,149.99910458331098,0.0,True,150.0,simulator_verified
+no_intentional_coasting,1.1999999905501928,1.0999517018117166,52.43991266033054,2000.0,9.537928174677953,149.99999968483974,0.0,True,150.0,simulator_verified
